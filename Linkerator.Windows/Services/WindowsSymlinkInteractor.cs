@@ -106,76 +106,135 @@ namespace Linkerator.Windows.Services
 
         public bool CreateSymbolicLink(string linkPath, string targetPath, bool isDirectory)
         {
-            if (Directory.Exists(linkPath))
+            if (string.IsNullOrWhiteSpace(linkPath)) throw new ArgumentNullException(nameof(linkPath));
+            if (string.IsNullOrWhiteSpace(targetPath)) throw new ArgumentNullException(nameof(targetPath));
+
+            if (File.Exists(linkPath) || Directory.Exists(linkPath))
                 return false;
 
-            if (!Directory.Exists(targetPath))
-                return false;
-
-            Directory.CreateDirectory(linkPath);
-
-            var targetPathWithPrefix = @"\??\" + Path.GetFullPath(targetPath);
-            var targetPathWithPrefixByteLength = targetPathWithPrefix.Length * 2;
-
-            using (var handle = FileInteraction.CreateFile(
-                linkPath,
-                FileInteraction.GenericAccessRights.GENERIC_WRITE,
-                FileInteraction.FileShareMode.FILE_SHARE_READ,
-                IntPtr.Zero,
-                FileInteraction.CreationDisposition.OPEN_EXISTING,
-                FileInteraction.FileFlagsAndAttributes.FILE_FLAG_OPEN_REPARSE_POINT | FileInteraction.FileFlagsAndAttributes.FILE_FLAG_BACKUP_SEMANTICS,
-                IntPtr.Zero))
+            if (!isDirectory)
             {
-                if (Marshal.GetLastWin32Error() != 0 || handle.IsInvalid)
-                    throw new IOException($"Can't open file '${linkPath}' : \n{Marshal.GetLastPInvokeErrorMessage()}");
+                if (!File.Exists(targetPath))
+                    return false;
 
-                var reparseDataBuffer = new DeviceInteraction.ReparseDataBuffer()
+                File.CreateSymbolicLink(linkPath, targetPath);
+                return true;
+            }
+            else
+            {
+                if (!Directory.Exists(targetPath))
+                    return false;
+
+                Directory.CreateDirectory(linkPath);
+
+                var targetPathWithPrefix = @"\??\" + Path.GetFullPath(targetPath);
+                var targetPathWithPrefixByteLength = targetPathWithPrefix.Length * 2;
+
+                using (var handle = FileInteraction.CreateFile(
+                    linkPath,
+                    FileInteraction.GenericAccessRights.GENERIC_WRITE,
+                    FileInteraction.FileShareMode.FILE_SHARE_READ,
+                    IntPtr.Zero,
+                    FileInteraction.CreationDisposition.OPEN_EXISTING,
+                    FileInteraction.FileFlagsAndAttributes.FILE_FLAG_OPEN_REPARSE_POINT | FileInteraction.FileFlagsAndAttributes.FILE_FLAG_BACKUP_SEMANTICS,
+                    IntPtr.Zero))
                 {
-                    ReparseTag = DeviceInteraction.IO_REPARSE_TAG_MOUNT_POINT,
-                    ReparseDataLength = (ushort)(targetPathWithPrefixByteLength + 8 + UnicodeEncoding.CharSize * 2),
-                    SubstituteNameOffset = 0,
-                    SubstituteNameLength = (ushort)targetPathWithPrefixByteLength,
-                    PrintNameOffset = (ushort)(targetPathWithPrefixByteLength + UnicodeEncoding.CharSize),
-                    PrintNameLength = 0,
-                    PathBuffer = targetPathWithPrefix
-                };
+                    if (Marshal.GetLastWin32Error() != 0 || handle.IsInvalid)
+                        throw new IOException($"Can't open file '${linkPath}' : \n{Marshal.GetLastPInvokeErrorMessage()}");
 
-                var bufferSize = Marshal.SizeOf(reparseDataBuffer);
-                IntPtr buffer = Marshal.AllocHGlobal(bufferSize);
-                try
-                {
-                    Marshal.StructureToPtr(reparseDataBuffer, buffer, false);
-
-                    bool result = DeviceInteraction.DeviceIoControl(
-                        handle,
-                        DeviceInteraction.IOControlCodes.FSCTL_SET_REPARSE_POINT,
-                        buffer,
-                        (uint)(targetPathWithPrefixByteLength + DeviceInteraction.ReparseDataBufferLength),
-                        IntPtr.Zero,
-                        0,
-                        out _,
-                        IntPtr.Zero);
-
-                    if (!result)
+                    var reparseDataBuffer = new DeviceInteraction.ReparseDataBuffer()
                     {
-                        throw new IOException($"Failed to create junction point for '{linkPath}' -> '{targetPath}' : \n{Marshal.GetLastPInvokeErrorMessage()}");
+                        ReparseTag = DeviceInteraction.IO_REPARSE_TAG_MOUNT_POINT,
+                        ReparseDataLength = (ushort)(targetPathWithPrefixByteLength + 8 + UnicodeEncoding.CharSize * 2),
+                        SubstituteNameOffset = 0,
+                        SubstituteNameLength = (ushort)targetPathWithPrefixByteLength,
+                        PrintNameOffset = (ushort)(targetPathWithPrefixByteLength + UnicodeEncoding.CharSize),
+                        PrintNameLength = 0,
+                        PathBuffer = targetPathWithPrefix
+                    };
+
+                    var bufferSize = Marshal.SizeOf(reparseDataBuffer);
+                    IntPtr buffer = Marshal.AllocHGlobal(bufferSize);
+                    try
+                    {
+                        Marshal.StructureToPtr(reparseDataBuffer, buffer, false);
+
+                        bool result = DeviceInteraction.DeviceIoControl(
+                            handle,
+                            DeviceInteraction.IOControlCodes.FSCTL_SET_REPARSE_POINT,
+                            buffer,
+                            (uint)(targetPathWithPrefixByteLength + DeviceInteraction.ReparseDataBufferLength),
+                            IntPtr.Zero,
+                            0,
+                            out _,
+                            IntPtr.Zero);
+
+                        if (!result)
+                        {
+                            throw new IOException($"Failed to create junction point for '{linkPath}' -> '{targetPath}' : \n{Marshal.GetLastPInvokeErrorMessage()}");
+                        }
+                    }
+                    finally
+                    {
+                        Marshal.FreeHGlobal(buffer);
                     }
                 }
-                finally
-                {
-                    Marshal.FreeHGlobal(buffer);
-                }
+                return true;
             }
-            return true;
         }
 
         public string? GetSymlinkTarget(string path)
         {
-            GetSymbolicLinkInternal(path, out var target);
-            return target;
+            if (string.IsNullOrWhiteSpace(path)) throw new ArgumentNullException(nameof(path));
+
+            try
+            {
+                var fileInfo = new FileInfo(path);
+                var link = fileInfo.LinkTarget;
+
+                if (!string.IsNullOrEmpty(link))
+                    return link;
+
+                var di = new DirectoryInfo(path);
+                link = di.LinkTarget;
+                if (!string.IsNullOrEmpty(link))
+                {
+                    return link;
+                }
+                else
+                {
+                    GetSymbolicLinkInternal(path, out var target);
+                    return target;
+                }
+            }
+            catch (Exception)
+            {
+                return null;
+            }
         }
 
-        public bool IsSymbolicLink(string path) => GetSymbolicLinkInternal(path, out _);
+        public bool IsSymbolicLink(string path)
+        {
+            if (string.IsNullOrWhiteSpace(path)) throw new ArgumentNullException(nameof(path));
+
+            try
+            {
+                var fi = new FileInfo(path);
+                if (!string.IsNullOrEmpty(fi.LinkTarget))
+                    return true;
+
+                var di = new DirectoryInfo(path);
+                if (!string.IsNullOrEmpty(di.LinkTarget))
+                    return true;
+                else
+                    return GetSymbolicLinkInternal(path, out _);
+
+            }
+            catch (Exception)
+            {
+                return false;
+            }
+        }
 
         private bool GetSymbolicLinkInternal(string path, out string symlinkTarget)
         {
