@@ -1,0 +1,68 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="clr-namespace:Linkerator.ViewModels"
+        xmlns:designvm="clr-namespace:Linkerator.ViewModels.Design"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d" d:DesignWidth="600" d:DesignHeight="400"
+		Width="600" Height="400"
+        x:Class="Linkerator.Views.MainWindow"
+        x:DataType="vm:MainWindowViewModel"
+        Icon="/Assets/avalonia-logo.ico"
+        Title="Linkerator">
+
+	<Design.DataContext>
+		<!-- This only sets the DataContext for the previewer in an IDE,
+             to set the actual DataContext for runtime, set the DataContext property in code (look at App.axaml.cs) -->
+		<designvm:DesignMainWindowViewModel/>
+	</Design.DataContext>
+
+	<DockPanel>
+		<Grid Margin="20" RowDefinitions="Auto,Auto,*" ColumnDefinitions="2*,Auto,2*">
+			<WrapPanel Grid.Row="0" Grid.Column="0" ItemsAlignment="Start">
+				<TextBlock Grid.Row="0" Grid.Column="0" Text="Setup for:" VerticalAlignment="Center"/>
+				<ComboBox Margin="10,0,0,0"
+						  ItemsSource="{Binding AvailablePlatforms}"
+						  SelectedItem="{Binding SelectedPlatform, Mode=TwoWay}"
+						  HorizontalAlignment="Left"
+						  MinWidth="60">
+					<ComboBox.ItemTemplate>
+						<DataTemplate>
+							<TextBlock Text="{Binding Name}" />
+						</DataTemplate>
+					</ComboBox.ItemTemplate>
+				</ComboBox>
+			</WrapPanel>
+			<Button Grid.Row="0" Grid.Column="2" Content="Setup!" Command="{Binding SetupCommand}" IsEnabled="{Binding SetupAllowed}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="0,0,0,10" />
+
+			<TextBlock Grid.Row="1" Grid.Column="0" Text="{Binding SourcePath}" ToolTip.Tip="{Binding SourcePath}" FontWeight="Bold" Margin="0,0,5,0" VerticalAlignment="Center"/>
+
+			<Grid Grid.Row="1" Grid.Column="2" ColumnDefinitions="*,Auto">
+				<TextBox Grid.Column="0" Margin="0,0,10,0"
+						 Text="{Binding SetupAtPath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+						 Watermark="Setup project at..."/>
+				<Button Grid.Column="1" Content="Browse" Command="{Binding BrowseCommand}" />
+			</Grid>
+
+			<ScrollViewer Grid.Row="2" Grid.ColumnSpan="3" VerticalScrollBarVisibility="Auto" Margin="0,20,0,0">
+				<ItemsControl ItemsSource="{Binding EntryRows}">
+					<ItemsControl.ItemTemplate>
+						<DataTemplate x:DataType="vm:EntryRowViewModel">
+							<Grid ColumnDefinitions="2*,Auto,2*" HorizontalAlignment="Stretch">
+								<Border Grid.Column="0" Background="{Binding SourceBackground}" Padding="4">
+									<TextBlock Text="{Binding EntryRow.Source.Name}" ToolTip.Tip="{Binding SourceTooltip}" />
+								</Border>
+								<Border Grid.Column="1" Padding="4" HorizontalAlignment="Center" VerticalAlignment="Center">
+									<TextBlock Text="{Binding Indicator}" FontSize="16" MinWidth="24"/>
+								</Border>
+								<Border Grid.Column="2" Background="{Binding TargetBackground}" Padding="4">
+									<TextBlock Text="{Binding EntryRow.Target.Name}" ToolTip.Tip="{Binding TargetTooltip}" />
+								</Border>
+							</Grid>
+						</DataTemplate>
+					</ItemsControl.ItemTemplate>
+				</ItemsControl>
+			</ScrollViewer>
+		</Grid>
+	</DockPanel>
+</Window>

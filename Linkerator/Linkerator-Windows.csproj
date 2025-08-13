@@ -1,0 +1,41 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <OutputType>WinExe</OutputType>
+    <Nullable>enable</Nullable>
+    <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+    <DefineConstants>$(DefineConstants);WINDOWS</DefineConstants>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+    <ApplicationIcon>Assets\avalonia-logo.ico</ApplicationIcon>
+  </PropertyGroup>
+	
+  <ItemGroup>
+    <AvaloniaResource Include="Assets\**" />
+  </ItemGroup>
+	
+  <ItemGroup>
+    <Content Include="Assets\avalonia-logo.ico" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia" Version="11.3.0" />
+    <PackageReference Include="Avalonia.Desktop" Version="11.3.0" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="11.3.0" />
+    <PackageReference Include="Avalonia.Fonts.Inter" Version="11.3.0" />
+    <!--Condition below is needed to remove Avalonia.Diagnostics package from build output in Release configuration.-->
+    <PackageReference Include="Avalonia.Diagnostics" Version="11.3.0">
+      <IncludeAssets Condition="'$(Configuration)' != 'Debug'">None</IncludeAssets>
+      <PrivateAssets Condition="'$(Configuration)' != 'Debug'">All</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.2.1" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="9.0.7" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Linkerator.Windows\Linkerator.Windows.csproj" />
+    <ProjectReference Include="..\Linkerator.Core\Linkerator.Core.csproj" />
+  </ItemGroup>
+</Project>
